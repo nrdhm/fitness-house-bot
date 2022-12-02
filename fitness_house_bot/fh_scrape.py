@@ -2,8 +2,14 @@ import requests
 from bs4 import BeautifulSoup
 
 
-def scrape_fh_schedule():
-    url = "https://www.fitnesshouse.ru/raspisanie-shavrova.html"
+urls = {
+    "current": "https://www.fitnesshouse.ru/raspisanie-shavrova.html",
+    "next": "https://www.fitnesshouse.ru/2915.html",
+}
+
+
+def scrape_fh_schedule(when: str) -> list:
+    url = urls[when]
     response = requests.get(url)
     soup = BeautifulSoup(response.text, "lxml")
     rows = soup.select("table.shedule tr")

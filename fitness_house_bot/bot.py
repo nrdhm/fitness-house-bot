@@ -14,14 +14,12 @@ activities = None
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global activities
-    activities = scrape_fh_schedule()
-    dates = sorted(
-        set(x["date"] for x in activities),
-        key=lambda x: tuple(reversed(x.split(",")[0].split("."))),
+    activities = scrape_fh_schedule("current")
+    activities.extend(scrape_fh_schedule("next"))
+    await update.message.reply_text(
+        "Выбери дату:",
+        reply_markup=await _buttons_for(),
     )
-    keyboard = [[InlineKeyboardButton(date, callback_data=date)] for date in dates]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Выбери дату:", reply_markup=reply_markup)
 
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -32,11 +30,40 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
     await query.answer()
 
-    chosen = [x for x in activities if x["date"] == query.data]
+    if query.data == "back":
+        await query.edit_message_text(
+            "Выбери дату:",
+            reply_markup=await _buttons_for(),
+        )
+        return
+
+    date = query.data
+    chosen = [x for x in activities if x["date"] == date]
     assert chosen
-    header = f"Расписание на {query.data}"
+    header = f"Расписание на {date}"
     body = [f'{x["time"]}: {x["name"]}' for x in chosen]
-    await query.edit_message_text(text="\n".join([header, *body]))
+    await query.edit_message_text(
+        text="\n".join([header, *body]),
+        reply_markup=InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Назад", callback_data="back")]],
+        ),
+    )
+
+
+async def _buttons_for() -> InlineKeyboardMarkup:
+    dates = sorted(
+        set(x["date"] for x in activities),
+        key=lambda x: tuple(reversed(x.split(",")[0].split("."))),
+    )
+    this_week, next_week = dates[:7], dates[7:]
+    keyboard = [
+        [
+            InlineKeyboardButton(this, callback_data=this),
+            InlineKeyboardButton(next, callback_data=next),
+        ]
+        for this, next in zip(this_week, next_week)
+    ]
+    return InlineKeyboardMarkup(keyboard)
 
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
