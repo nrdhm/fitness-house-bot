@@ -13,3 +13,7 @@
 Для тестирования скачивания расписания запускаем:
 
     python fitness_house_bot/fh_scrape.py
+
+# Запуск
+
+TOKEN=... poetry run python -m fitness_house_bot
