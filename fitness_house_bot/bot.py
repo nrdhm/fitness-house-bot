@@ -14,11 +14,16 @@ activities = None
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global activities
-    activities = scrape_fh_schedule("current")
-    activities.extend(scrape_fh_schedule("next"))
+    current_activities = scrape_fh_schedule("current")
+    next_activities = scrape_fh_schedule("next")
+    if not next_activities:
+        await update.message.reply_text(
+            "Расписание на следующую неделю отсутствует.",
+        )
+    activities = current_activities + next_activities
     await update.message.reply_text(
         "Выбери дату:",
-        reply_markup=await _buttons_for(),
+        reply_markup=await _schedule_buttons(),
     )
 
 
@@ -33,8 +38,11 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if query.data == "back":
         await query.edit_message_text(
             "Выбери дату:",
-            reply_markup=await _buttons_for(),
+            reply_markup=await _schedule_buttons(),
         )
+        return
+
+    if query.data == "-":
         return
 
     date = query.data
@@ -50,12 +58,15 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-async def _buttons_for() -> InlineKeyboardMarkup:
+async def _schedule_buttons() -> InlineKeyboardMarkup:
     dates = sorted(
         set(x["date"] for x in activities),
         key=lambda x: tuple(reversed(x.split(",")[0].split("."))),
     )
-    this_week, next_week = dates[:7], dates[7:]
+    this_week, dates = dates[:7], dates[7:]
+    next_week = ["-"] * 7
+    if dates:
+        next_week = dates[:7]
     keyboard = [
         [
             InlineKeyboardButton(this, callback_data=this),

@@ -13,6 +13,8 @@ def scrape_fh_schedule(when: str) -> list:
     response = requests.get(url)
     soup = BeautifulSoup(response.text, "lxml")
     rows = soup.select("table.shedule tr")
+    if not rows:
+        return []
     [_, *dates] = [y.text for y in rows[0].select("th")]
     assert len(dates) == 7
     activities = []
