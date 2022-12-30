@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 
 
 urls = {
-    "current": "https://www.fitnesshouse.ru/raspisanie-shavrova.html",
+    "now": "https://www.fitnesshouse.ru/raspisanie-shavrova.html",
     "next": "https://www.fitnesshouse.ru/2915.html",
 }
 
@@ -12,18 +12,26 @@ def scrape_fh_schedule(when: str) -> list:
     url = urls[when]
     response = requests.get(url)
     soup = BeautifulSoup(response.text, "lxml")
+    # Расписание находится в формате таблицы.
+    # Представляем таблицу в виде списка строк.
     rows = soup.select("table.shedule tr")
     if not rows:
         return []
+    # В первой строке находятся заголовки -- даты занятий.
     [_, *dates] = [y.text for y in rows[0].select("th")]
+    # Это расписание на неделю, дат всего семь.
     assert len(dates) == 7
     activities = []
     last_time = None  # handle spanning multi-rows
     for row in rows[1:]:
+        # В каждой ячейке строки указаны занятия.
         cells = row.select("td")
+        # Каждой строке соответствует время занятия.
+        # Оно указано в первой ячейке строки
         if len(cells) != 7:
             [time_td, *cells] = cells
             last_time = time_td.text.strip()
+        # либо его нет и время равно времени предыдущей строки.
         assert len(cells) == 7
         assert last_time
         for date, cell in zip(dates, cells):
@@ -63,4 +71,4 @@ def _activity(time, date, td_cell):
 if __name__ == "__main__":
     from pprint import pprint
 
-    pprint(scrape_fh_schedule())
+    pprint(scrape_fh_schedule("now"))

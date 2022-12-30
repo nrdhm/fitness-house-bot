@@ -14,7 +14,7 @@ activities = None
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global activities
-    current_activities = scrape_fh_schedule("current")
+    current_activities = scrape_fh_schedule("now")
     next_activities = scrape_fh_schedule("next")
     if not next_activities:
         await update.message.reply_text(
