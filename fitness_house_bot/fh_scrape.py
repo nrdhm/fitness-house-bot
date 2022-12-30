@@ -1,6 +1,7 @@
+from typing import TypedDict
+
 import requests
 from bs4 import BeautifulSoup
-
 
 urls = {
     "now": "https://www.fitnesshouse.ru/raspisanie-shavrova.html",
@@ -8,7 +9,21 @@ urls = {
 }
 
 
-def scrape_fh_schedule(when: str) -> list:
+class BaseInfo(TypedDict):
+    name: str
+    trainer: str
+    place: str
+
+
+class Activity(BaseInfo):
+    time: str  # like '11.00'
+    date: str  # like '31.12, сб'
+
+
+ActivitySchedule = dict[str, list[Activity]]
+
+
+def scrape_fh_schedule(when: str) -> ActivitySchedule:
     url = urls[when]
     response = requests.get(url)
     soup = BeautifulSoup(response.text, "lxml")
@@ -17,12 +32,13 @@ def scrape_fh_schedule(when: str) -> list:
     rows = soup.select("table.shedule tr")
     if not rows:
         return []
+    dates: list[str]
     # В первой строке находятся заголовки -- даты занятий.
     [_, *dates] = [y.text for y in rows[0].select("th")]
     # Это расписание на неделю, дат всего семь.
     assert len(dates) == 7
-    activities = []
-    last_time = None  # handle spanning multi-rows
+    activities = {}
+    last_time = None
     for row in rows[1:]:
         # В каждой ячейке строки указаны занятия.
         cells = row.select("td")
@@ -34,18 +50,19 @@ def scrape_fh_schedule(when: str) -> list:
         # либо его нет и время равно времени предыдущей строки.
         assert len(cells) == 7
         assert last_time
+        # Сопоставляем каждой ячейке занятия дату.
         for date, cell in zip(dates, cells):
             x = _activity(last_time, date, cell)
             if x:
-                activities.append(x)
+                activities.setdefault(date, []).append(x)
     return activities
 
 
-def _scrape_activity_cell(td_cell):
+def _scrape_activity_cell(td_cell) -> BaseInfo:
     # пустые ячейки без класса
     if not td_cell["class"]:
         return None
-    # у детских занятий нет onclic атрибута
+    # у детских занятий нет onclic атрибута - пропускаем детские занятия.
     if not td_cell.get("onclick"):
         return None
     [name_p] = td_cell.select("p.hdr")
@@ -58,7 +75,7 @@ def _scrape_activity_cell(td_cell):
     }
 
 
-def _activity(time, date, td_cell):
+def _activity(time: str, date: str, td_cell) -> Activity:
     if not (info := _scrape_activity_cell(td_cell)):
         return
     return {

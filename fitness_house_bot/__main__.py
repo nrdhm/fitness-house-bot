@@ -2,14 +2,20 @@ import logging
 import os
 
 from telegram.ext import (
-    ApplicationBuilder,
+    Application,
     CommandHandler,
-    MessageHandler,
+    ConversationHandler,
     CallbackQueryHandler,
-    filters,
 )
 
-from .bot import caps, echo, start, unknown, button
+from .bot import (
+    start,
+    unknown,
+    handle_choose_date,
+    handle_date_chosen,
+    CHOOSE_DATE,
+    DATE_CHOSEN,
+)
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -17,20 +23,15 @@ logging.basicConfig(
 
 
 if __name__ == "__main__":
-    application = ApplicationBuilder().token(os.environ["TOKEN"]).build()
+    application = Application.builder().token(os.environ["TOKEN"]).build()
 
-    start_handler = CommandHandler("start", start)
-    application.add_handler(start_handler)
-
-    application.add_handler(CallbackQueryHandler(button))
-
-    echo_handler = MessageHandler(filters.TEXT & (~filters.COMMAND), echo)
-    application.add_handler(echo_handler)
-
-    caps_handler = CommandHandler("caps", caps)
-    application.add_handler(caps_handler)
-
-    unknown_handler = MessageHandler(filters.COMMAND, unknown)
-    application.add_handler(unknown_handler)
-
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("start", start)],
+        states={
+            CHOOSE_DATE: [CallbackQueryHandler(handle_choose_date)],
+            DATE_CHOSEN: [CallbackQueryHandler(handle_date_chosen)],
+        },
+        fallbacks=[unknown],
+    )
+    application.add_handler(conv_handler)
     application.run_polling()
