@@ -2,19 +2,22 @@ import logging
 from itertools import zip_longest
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, ConversationHandler
 
 from .fh_scrape import ActivitySchedule, scrape_fh_schedule
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
+logger = logging.getLogger(__name__)
 
 
 CHOOSE_DATE, DATE_CHOSEN = range(2)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.message.from_user
+    logger.info("User %s started the conversation.", user.first_name)
     this_week = scrape_fh_schedule("now")
     next_week = scrape_fh_schedule("next")
     context.bot_data["this_week"] = this_week
@@ -34,6 +37,8 @@ async def handle_choose_date(
     """Parses the CallbackQuery and updates the message text."""
     query = update.callback_query
     await query.answer()
+    user = update.callback_query.from_user
+    logger.info("User %s chose %s.", user.first_name, query.data)
 
     key, date = query.data.split(" ", maxsplit=1)
     if date == "-":
@@ -62,6 +67,9 @@ async def handle_date_chosen(
     this_week = context.bot_data["this_week"]
     next_week = context.bot_data["next_week"]
 
+    user = update.callback_query.from_user
+    logger.info("User %s chose %s.", user.first_name, query.data)
+
     if query.data == "back":
         await query.edit_message_text(
             "Выбери дату:",
@@ -84,8 +92,8 @@ async def _build_choose_dates_keyboard(
     return InlineKeyboardMarkup(keyboard)
 
 
-async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text="Sorry, I didn't understand that command.",
-    )
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Cancels and ends the conversation."""
+    user = update.message.from_user
+    logger.info("User %s canceled the conversation.", user.first_name)
+    return ConversationHandler.END

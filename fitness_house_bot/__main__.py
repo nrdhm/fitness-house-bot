@@ -10,7 +10,7 @@ from telegram.ext import (
 
 from .bot import (
     start,
-    unknown,
+    cancel,
     handle_choose_date,
     handle_date_chosen,
     CHOOSE_DATE,
@@ -31,7 +31,7 @@ if __name__ == "__main__":
             CHOOSE_DATE: [CallbackQueryHandler(handle_choose_date)],
             DATE_CHOSEN: [CallbackQueryHandler(handle_date_chosen)],
         },
-        fallbacks=[unknown],
+        fallbacks=[cancel],
     )
     application.add_handler(conv_handler)
     application.run_polling()
