@@ -25,7 +25,10 @@ ActivitySchedule = dict[str, list[Activity]]
 
 def scrape_fh_schedule(when: str) -> ActivitySchedule:
     url = urls[when]
-    response = requests.get(url)
+    session = requests.Session()
+    # Не показывать детские занятия.
+    session.post(url, data={"ScheduleFilter[nochild][0]": "0"})
+    response = session.get(url)
     soup = BeautifulSoup(response.text, "lxml")
     # Расписание находится в формате таблицы.
     # Представляем таблицу в виде списка строк.
@@ -64,8 +67,8 @@ def _scrape_activity_cell(td_cell) -> BaseInfo:
     if not td_cell["class"]:
         return None
     # у детских занятий нет onclic атрибута - пропускаем детские занятия.
-    if not td_cell.get("onclick"):
-        return None
+    # if not td_cell.get("onclick"):
+    #     return None
     [name_p] = td_cell.select("p.hdr")
     [trainer_p] = td_cell.select("p.trainer")
     [place_p] = td_cell.select("p.place")

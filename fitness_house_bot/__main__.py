@@ -31,7 +31,7 @@ if __name__ == "__main__":
             CHOOSE_DATE: [CallbackQueryHandler(handle_choose_date)],
             DATE_CHOSEN: [CallbackQueryHandler(handle_date_chosen)],
         },
-        fallbacks=[cancel],
+        fallbacks=[CommandHandler("cancel", cancel)],
     )
     application.add_handler(conv_handler)
     application.run_polling()

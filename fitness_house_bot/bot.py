@@ -25,6 +25,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not next_week:
         await update.message.reply_text("Расписание на следующую неделю отсутствует.")
     logger.info("This week schedule %s", this_week.keys())
+    logger.info("This week schedule %s", this_week["02.01, пн"])
     logger.info("Next week schedule %s", next_week.keys())
     await update.message.reply_text(
         "Выбери дату:",
