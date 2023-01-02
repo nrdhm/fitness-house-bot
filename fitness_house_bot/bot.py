@@ -24,6 +24,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.bot_data["next_week"] = next_week
     if not next_week:
         await update.message.reply_text("Расписание на следующую неделю отсутствует.")
+    logger.info("This week schedule %s", this_week.keys())
+    logger.info("Next week schedule %s", next_week.keys())
     await update.message.reply_text(
         "Выбери дату:",
         reply_markup=await _build_choose_dates_keyboard(this_week, next_week),

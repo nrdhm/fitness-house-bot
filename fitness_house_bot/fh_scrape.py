@@ -30,14 +30,14 @@ def scrape_fh_schedule(when: str) -> ActivitySchedule:
     # Расписание находится в формате таблицы.
     # Представляем таблицу в виде списка строк.
     rows = soup.select("table.shedule tr")
+    activities = {}
     if not rows:
-        return []
+        return activities
     dates: list[str]
     # В первой строке находятся заголовки -- даты занятий.
     [_, *dates] = [y.text for y in rows[0].select("th")]
     # Это расписание на неделю, дат всего семь.
     assert len(dates) == 7
-    activities = {}
     last_time = None
     for row in rows[1:]:
         # В каждой ячейке строки указаны занятия.
@@ -52,9 +52,10 @@ def scrape_fh_schedule(when: str) -> ActivitySchedule:
         assert last_time
         # Сопоставляем каждой ячейке занятия дату.
         for date, cell in zip(dates, cells):
+            activities.setdefault(date, [])
             x = _activity(last_time, date, cell)
             if x:
-                activities.setdefault(date, []).append(x)
+                activities[date].append(x)
     return activities
 
 
