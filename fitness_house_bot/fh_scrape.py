@@ -1,6 +1,6 @@
 from typing import TypedDict
 
-import requests
+import httpx
 from bs4 import BeautifulSoup
 
 urls = {
@@ -23,12 +23,12 @@ class Activity(BaseInfo):
 ActivitySchedule = dict[str, list[Activity]]
 
 
-def scrape_fh_schedule(when: str) -> ActivitySchedule:
+async def scrape_fh_schedule(when: str) -> ActivitySchedule:
     url = urls[when]
-    session = requests.Session()
-    # Не показывать детские занятия.
-    session.post(url, data={"ScheduleFilter[nochild][0]": "0"})
-    response = session.get(url)
+    async with httpx.AsyncClient() as client:
+        # Не показывать детские занятия.
+        await client.post(url, data={"ScheduleFilter[nochild][0]": "0"})
+        response = await client.get(url)
     soup = BeautifulSoup(response.text, "lxml")
     # Расписание находится в формате таблицы.
     # Представляем таблицу в виде списка строк.
@@ -90,6 +90,10 @@ def _activity(time: str, date: str, td_cell) -> Activity:
 
 
 if __name__ == "__main__":
+    import asyncio
     from pprint import pprint
 
-    pprint(scrape_fh_schedule("now"))
+    async def main():
+        pprint(await scrape_fh_schedule("now"))
+
+    asyncio.run(main())

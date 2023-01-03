@@ -28,8 +28,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     logger.info("User %s started the conversation.", user.first_name)
     # получить расписание на эту и следующую недели
-    this_week = scrape_fh_schedule("now")
-    next_week = scrape_fh_schedule("next")
+    this_week = await scrape_fh_schedule("now")
+    next_week = await scrape_fh_schedule("next")
     # сохранить их в контексте
     context.bot_data["this_week"] = this_week
     context.bot_data["next_week"] = next_week
