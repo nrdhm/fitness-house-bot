@@ -3,6 +3,7 @@ import os
 from itertools import zip_longest
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, CallbackQuery
+from telegram.constants import ParseMode
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -122,7 +123,12 @@ async def _show_activities_for_date(
     )
     # Готовим ответ.
     header = f"Занятия на {date}"
-    body = [f'{x["time"]}: {x["name"]}' for x in chosen]
+    body = [
+        f"""{x["time"]}
+        <b>{x["name"]}</b>
+        {x["place"]}"""
+        for x in chosen
+    ]
     buttons = [[InlineKeyboardButton("Назад к расписанию", callback_data="back")]]
     if prev_date != date:
         buttons.append(
@@ -135,6 +141,7 @@ async def _show_activities_for_date(
     await query.edit_message_text(
         text="\n".join([header, *body]),
         reply_markup=InlineKeyboardMarkup(buttons),
+        parse_mode=ParseMode.HTML,
     )
 
 
