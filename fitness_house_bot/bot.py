@@ -1,13 +1,21 @@
 import logging
+import os
 from itertools import zip_longest
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ContextTypes, ConversationHandler
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, CallbackQuery
+from telegram.ext import (
+    Application,
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    ConversationHandler,
+)
 
 from .fh_scrape import ActivitySchedule, scrape_fh_schedule
 
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+    format="%(asctime)s - %(name)s:%(funcName)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
 
@@ -16,17 +24,18 @@ CHOOSE_DATE, DATE_CHOSEN = range(2)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Получить расписание занятий на две недели и показать его в виде кнопок."""
     user = update.message.from_user
     logger.info("User %s started the conversation.", user.first_name)
+    # получить расписание на эту и следующую недели
     this_week = scrape_fh_schedule("now")
     next_week = scrape_fh_schedule("next")
+    # сохранить их в контексте
     context.bot_data["this_week"] = this_week
     context.bot_data["next_week"] = next_week
     if not next_week:
         await update.message.reply_text("Расписание на следующую неделю отсутствует.")
-    logger.info("This week schedule %s", this_week.keys())
-    logger.info("This week schedule %s", this_week["02.01, пн"])
-    logger.info("Next week schedule %s", next_week.keys())
+    # вывести две колонки кнопок с расписанием
     await update.message.reply_text(
         "Выбери дату:",
         reply_markup=await _build_choose_dates_keyboard(this_week, next_week),
@@ -37,41 +46,28 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_choose_date(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
-    """Parses the CallbackQuery and updates the message text."""
+    """Обработка нажатия на кнопку с занятиями на день.
+    Показать расписание на выбранный день и кнопки назад, завтра, вчера.
+    """
+    # тут формальности общения с сервером телеги
     query = update.callback_query
     await query.answer()
-    user = update.callback_query.from_user
-    logger.info("User %s chose %s.", user.first_name, query.data)
-
-    key, date = query.data.split(" ", maxsplit=1)
-    if date == "-":
-        return CHOOSE_DATE
-
-    chosen = context.bot_data[key][date]
-    assert chosen
-    header = f"Расписание на {date}"
-    body = [f'{x["time"]}: {x["name"]}' for x in chosen]
-    await query.edit_message_text(
-        text="\n".join([header, *body]),
-        reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Назад", callback_data="back")]],
-        ),
-    )
+    await _show_activities_for_date(update.callback_query, context)
     return DATE_CHOSEN
 
 
 async def handle_date_chosen(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
-    """Parses the CallbackQuery and updates the message text."""
+    """Обработка нажатия на кнопки назад, завтра, вчера."""
+    # тут формальности общения с сервером телеги
     query = update.callback_query
     await query.answer()
 
     this_week = context.bot_data["this_week"]
     next_week = context.bot_data["next_week"]
 
-    user = update.callback_query.from_user
-    logger.info("User %s chose %s.", user.first_name, query.data)
+    logger.info("User %s chose %s.", query.from_user.first_name, query.data)
 
     if query.data == "back":
         await query.edit_message_text(
@@ -79,6 +75,8 @@ async def handle_date_chosen(
             reply_markup=await _build_choose_dates_keyboard(this_week, next_week),
         )
         return CHOOSE_DATE
+    if query.data.startswith("this_week") or query.data.startswith("next_week"):
+        await _show_activities_for_date(update.callback_query, context)
     return DATE_CHOSEN
 
 
@@ -100,3 +98,65 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     logger.info("User %s canceled the conversation.", user.first_name)
     return ConversationHandler.END
+
+
+async def _show_activities_for_date(
+    query: CallbackQuery, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    # логируем юзера
+    logger.info("User %s chose %s.", query.from_user.first_name, query.data)
+    # В query.data может находится только строка.
+    # Поэтому там сохраняем что-то вроде "now 02.01, пн"
+    # где now указывает на эту либо следующую (next) неделю
+    key, date = query.data.split(" ", maxsplit=1)
+    # Даты нет -- нет расписания. Нужно выбрать другую дату.
+    if date == "-":
+        return CHOOSE_DATE
+    # Получаем занятия на выбранную дату из контекста.
+    chosen = context.bot_data[key][date]
+    assert chosen
+    # Находим следующую и предыдщую даты.
+    prev_date, next_date = _find_neighbour_dates(
+        list(context.bot_data[key].keys()),
+        date,
+    )
+    # Готовим ответ.
+    header = f"Занятия на {date}"
+    body = [f'{x["time"]}: {x["name"]}' for x in chosen]
+    buttons = [[InlineKeyboardButton("Назад к расписанию", callback_data="back")]]
+    if prev_date != date:
+        buttons.append(
+            [InlineKeyboardButton(prev_date, callback_data=f"{key} {prev_date}")]
+        )
+    if next_date != date:
+        buttons.append(
+            [InlineKeyboardButton(next_date, callback_data=f"{key} {next_date}")]
+        )
+    await query.edit_message_text(
+        text="\n".join([header, *body]),
+        reply_markup=InlineKeyboardMarkup(buttons),
+    )
+
+
+def _find_neighbour_dates(days: list[str], date: str) -> tuple[str, str]:
+    assert date in days
+    idx = days.index(date)
+    prev_idx = max(0, idx - 1)
+    next_idx = min(len(days) - 1, idx + 1)
+    return days[prev_idx], days[next_idx]
+
+
+def main() -> None:
+    """Run the bot."""
+    application = Application.builder().token(os.environ["TOKEN"]).build()
+
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("start", start)],
+        states={
+            CHOOSE_DATE: [CallbackQueryHandler(handle_choose_date)],
+            DATE_CHOSEN: [CallbackQueryHandler(handle_date_chosen)],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
+    application.add_handler(conv_handler)
+    application.run_polling()
