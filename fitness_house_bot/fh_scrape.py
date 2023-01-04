@@ -1,7 +1,17 @@
+import io
+import logging
+import tokenize
 from typing import TypedDict
 
 import httpx
 from bs4 import BeautifulSoup
+
+logging.basicConfig(
+    format="%(asctime)s - %(name)s:%(funcName)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
+)
+logger = logging.getLogger(__name__)
+
 
 urls = {
     "now": "https://www.fitnesshouse.ru/raspisanie-shavrova.html",
@@ -13,6 +23,8 @@ class BaseInfo(TypedDict):
     name: str
     trainer: str
     place: str
+    css_class: list[str]
+    description: str
 
 
 class Activity(BaseInfo):
@@ -66,9 +78,9 @@ def _scrape_activity_cell(td_cell) -> BaseInfo:
     # пустые ячейки без класса
     if not td_cell["class"]:
         return None
-    # у детских занятий нет onclic атрибута - пропускаем детские занятия.
-    # if not td_cell.get("onclick"):
-    #     return None
+    description = ""
+    if onclick := td_cell.get("onclick"):
+        description = _read_description_from_onclick(onclick)
     [name_p] = td_cell.select("p.hdr")
     [trainer_p] = td_cell.select("p.trainer")
     [place_p] = td_cell.select("p.place")
@@ -76,6 +88,8 @@ def _scrape_activity_cell(td_cell) -> BaseInfo:
         "name": name_p.text.strip(),
         "trainer": trainer_p.text.strip(),
         "place": place_p.text.strip(),
+        "css_class": td_cell["class"],
+        "description": description,
     }
 
 
@@ -87,6 +101,20 @@ def _activity(time: str, date: str, td_cell) -> Activity:
         "date": date,
         **info,
     }
+
+
+def _read_description_from_onclick(onclick: str) -> str:
+    tokens = tokenize.generate_tokens(io.StringIO(onclick).readline)
+    func_name, lpar, activity, comma, description, *rest = tokens
+    if (
+        func_name.string != "showShedulePopup"
+        or lpar.string != "("
+        or not activity.string
+        or comma.string != ","
+    ):
+        logger.error("onclick tokenize failed: %s", onclick)
+        return ""
+    return description.string.strip("'")
 
 
 if __name__ == "__main__":

@@ -132,8 +132,17 @@ async def _show_activities_for_date(
     keyboard = []
     for time, activities in groupby(activities, key=lambda x: x["time"]):
         for activity in activities:
+            color = ""
+            if "yellow" in activity["css_class"]:
+                color = "🟡"
+            if "blue" in activity["css_class"]:
+                color = "🔵"
             keyboard.append(
-                [InlineKeyboardButton(f'{time} {activity["name"]}', callback_data="-")]
+                [
+                    InlineKeyboardButton(
+                        f'{time} – {activity["name"]} {color}', callback_data="-"
+                    )
+                ]
             )
     keyboard.append(
         [InlineKeyboardButton(" --- ", callback_data="-")],
