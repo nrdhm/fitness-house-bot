@@ -153,11 +153,11 @@ async def _show_activities_for_date(
     dates_buttons = []
     if prev_date != date:
         dates_buttons.append(
-            InlineKeyboardButton(f"⇐ {prev_date}", callback_data=f"{key} {prev_date}")
+            InlineKeyboardButton(f"← {prev_date}", callback_data=f"{key} {prev_date}")
         )
     if next_date != date:
         dates_buttons.append(
-            InlineKeyboardButton(f"{next_date} ⇒", callback_data=f"{key} {next_date}")
+            InlineKeyboardButton(f"{next_date} →", callback_data=f"{key} {next_date}")
         )
     keyboard.append(dates_buttons)
     await query.edit_message_text(
