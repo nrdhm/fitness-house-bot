@@ -40,7 +40,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.bot_data["this_week"] = this_week
     context.bot_data["next_week"] = next_week
     if not next_week:
-        await update.message.reply_text("Расписание на следующую неделю отсутствует.")
+        await update.message.reply_text("Нет расписания на следующую неделю.")
     # вывести две колонки кнопок с расписанием
     await update.message.reply_text(
         "Выбери дату:",
