@@ -1,8 +1,13 @@
 import logging
 import os
-from itertools import zip_longest
+from itertools import groupby, zip_longest
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, CallbackQuery
+from telegram import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Update,
+)
 from telegram.constants import ParseMode
 from telegram.ext import (
     Application,
@@ -65,8 +70,8 @@ async def handle_date_chosen(
     query = update.callback_query
     await query.answer()
 
-    this_week = context.bot_data["this_week"]
-    next_week = context.bot_data["next_week"]
+    this_week: ActivitySchedule = context.bot_data["this_week"]
+    next_week: ActivitySchedule = context.bot_data["next_week"]
 
     logger.info("User %s chose %s.", query.from_user.first_name, query.data)
 
@@ -114,33 +119,47 @@ async def _show_activities_for_date(
     if date == "-":
         return CHOOSE_DATE
     # Получаем занятия на выбранную дату из контекста.
-    chosen = context.bot_data[key][date]
-    assert chosen
+    schedule: ActivitySchedule = context.bot_data[key]
+    activities = schedule[date]
+    assert activities
     # Находим следующую и предыдщую даты.
     prev_date, next_date = _find_neighbour_dates(
-        list(context.bot_data[key].keys()),
+        list(schedule.keys()),
         date,
     )
     # Готовим ответ.
     header = f"Занятия на {date}"
-    body = [
-        f"""{x["time"]}
-        <b>{x["name"]}</b>
-        {x["place"]}"""
-        for x in chosen
-    ]
-    buttons = [[InlineKeyboardButton("Назад к расписанию", callback_data="back")]]
+    keyboard = []
+    for time, activities in groupby(activities, key=lambda x: x["time"]):
+        keyboard.append([InlineKeyboardButton(f"{time} ⏰", callback_data="-")])
+        for activity in activities:
+            keyboard.append(
+                [
+                    InlineKeyboardButton(
+                        f'{activity["name"]} [{activity["place"]}]',
+                        callback_data="-",
+                    )
+                ]
+            )
+    keyboard.append(
+        [InlineKeyboardButton(" --- ", callback_data="-")],
+    )
+    keyboard.append(
+        [InlineKeyboardButton("↶ Назад", callback_data="back")],
+    )
+    dates_buttons = []
     if prev_date != date:
-        buttons.append(
-            [InlineKeyboardButton(prev_date, callback_data=f"{key} {prev_date}")]
+        dates_buttons.append(
+            InlineKeyboardButton(f"⇐ {prev_date}", callback_data=f"{key} {prev_date}")
         )
     if next_date != date:
-        buttons.append(
-            [InlineKeyboardButton(next_date, callback_data=f"{key} {next_date}")]
+        dates_buttons.append(
+            InlineKeyboardButton(f"{next_date} ⇒", callback_data=f"{key} {next_date}")
         )
+    keyboard.append(dates_buttons)
     await query.edit_message_text(
-        text="\n".join([header, *body]),
-        reply_markup=InlineKeyboardMarkup(buttons),
+        text=header,
+        reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode=ParseMode.HTML,
     )
 
