@@ -131,15 +131,9 @@ async def _show_activities_for_date(
     header = f"Занятия на {date}"
     keyboard = []
     for time, activities in groupby(activities, key=lambda x: x["time"]):
-        keyboard.append([InlineKeyboardButton(f"{time} ⏰", callback_data="-")])
         for activity in activities:
             keyboard.append(
-                [
-                    InlineKeyboardButton(
-                        f'{activity["name"]} [{activity["place"]}]',
-                        callback_data="-",
-                    )
-                ]
+                [InlineKeyboardButton(f'{time} {activity["name"]}', callback_data="-")]
             )
     keyboard.append(
         [InlineKeyboardButton(" --- ", callback_data="-")],
