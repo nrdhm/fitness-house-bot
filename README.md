@@ -1,4 +1,4 @@
- Бот с расписанием фитнесс хауса.
+ Бот с расписанием фитнес хауса.
 
  https://t.me/remote7863193_bot
 
@@ -14,6 +14,6 @@
 
     python fitness_house_bot/fh_scrape.py
 
-# Запуск
+# Запуск бота
 
 TOKEN=... poetry run python -m fitness_house_bot
